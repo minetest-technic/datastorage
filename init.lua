@@ -1,99 +1,94 @@
-datastorage={}
-datastorage["registered_players"]={}
+datastorage = {data = {}}
 
-datastorage.save_data = function(table_pointer)
-	local data = minetest.serialize( datastorage[table_pointer] )
-	local path = minetest.get_worldpath().."/datastorage_"..table_pointer..".data"
-	local file = io.open( path, "w" )
-	if( file ) then
-		file:write( data )
-		file:close()
-		return true
-	else return nil
+local DIR_DELIM = DIR_DELIM or "/"
+local data_path = minetest.get_worldpath()..DIR_DELIM.."datastorage"..DIR_DELIM
+
+function datastorage.save(id)
+	local data = datastorage.data[id]
+	-- Check if the container is empty
+	if not data or not next(data) then return end
+	for _, sub_data in pairs(data) do
+		if not next(sub_data) then return end
 	end
-end
 
-datastorage.load_data = function(table_pointer)
-	local path = minetest.get_worldpath().."/datastorage_"..table_pointer..".data"
-	local file = io.open( path, "r" )
-	if( file ) then
-		local data = file:read("*all")
-		datastorage[table_pointer] = minetest.deserialize( data )
-		file:close()
+	local file = io.open(data_path..id, "w")
+	if not file then
+		-- Most likely the data directory doesn't exist, create it
+		-- and try again.
+		-- Using os.execute like this is not very platform independent
+		-- or safe; but most platforms name their directory
+		-- creation utility mkdir, and the data path is unlikely to
+		-- contain special characters and is only mutabable by the
+		-- admin.
+		os.execute('mkdir "'..data_path..'"')
+		file = io.open(data_path..id, "w")
+		if not file then return end
+	end
+
+	local datastr = minetest.serialize(data)
+	if not datastr then return end
+
+	file:write(datastr)
+	file:close()
 	return true
-	else return nil
+end
+
+function datastorage.load(id)
+	local file = io.open(data_path..id, "r")
+	if not file then return end
+
+	local data = minetest.deserialize(file:read("*all"))
+	datastorage.data[id] = data
+
+	file:close()
+	return data
+end
+
+-- Compatability
+function datastorage.get_container(player, id)
+	return datastorage.get(player:get_player_name(), id)
+end
+
+-- Retrieves a value from the data storage
+function datastorage.get(id, ...)
+	local last = datastorage.data[id]
+	if last == nil then last = datastorage.load(id) end
+	if last == nil then
+		last = {}
+		datastorage.data[id] = last
 	end
-end
-
-datastorage.get_container = function (mod_name, player)
-	local player_name = player:get_player_name()
-	local container = datastorage[player_name]
-	if container[mod_name] == nil then
-		container[mod_name] = {}
+	local cur = last
+	for _, sub_id in ipairs({...}) do
+		last = cur
+		cur = cur[sub_id]
+		if cur == nil then
+			cur = {}
+			last[sub_id] = cur
+		end
 	end
-	datastorage.save_data(player_name)
-	return container[mod_name]
+	return cur
 end
 
--- forced save of all player's data
-datastorage.save_container = function (player)
-	local player_name = player:get_player_name()
-	datastorage.save_data(player_name)
+-- Saves a container and reomves it from memory
+function datastorage.finish(id)
+	datastorage.save(id)
+	datastorage.data[id] = nil
 end
 
-
--- Init
-if datastorage.load_data("registered_players") == nil then
-	datastorage["registered_players"]={}
-	datastorage.save_data("registered_players")
+-- Compatability
+function datastorage.save_container(player)
+	return datastorage.save(player:get_player_name())
 end
-
-minetest.register_on_joinplayer(function(player)
-	local player_name = player:get_player_name()
-	local registered = nil
-	for __,tab in ipairs(datastorage["registered_players"]) do
-		if tab["player_name"] == player_name then registered = true break end
-	end
-	if registered == nil then
-		print("creating new one")
-		local new={}
-		new["player_name"]=player_name
-		table.insert(datastorage["registered_players"],new)
-		datastorage[player_name]={}
-		datastorage.save_data("registered_players")
-		datastorage.save_data(player_name)
-	else 
-		print("loading containers")
-		datastorage.load_data(player_name)
-	end
-
-
--- TEST AREA:	
-local test_container = datastorage.get_container("dupa",player)
-test_container["var1"] = 1.23
-test_container["table1"] = {}
-test_container["table1"]["var2"] = "nowa"
-test_container["table1"]["var3"] = "a string"
-
-print("Testing:")
-print(dump(test_container))
---datastorage.save_container(player)
--- END OF TEST AREA
-
-end
-)
 
 minetest.register_on_leaveplayer(function(player)
 	local player_name = player:get_player_name()
-	datastorage.save_data(player_name)
-	datastorage[player_name] = nil
-end
-)
+	datastorage.save(player_name)
+	datastorage.data[player_name] = nil
+end)
 
 minetest.register_on_shutdown(function()
-	for __,tab in ipairs(datastorage["registered_players"]) do
-		if datastorage[tab["player_name"]] == nil then break end
-		datastorage.save_data(tab["player_name"]) 
+	for id in pairs(datastorage.data) do
+		datastorage.save(id)
 	end
-end
-)
+end)
+
