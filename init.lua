@@ -15,12 +15,16 @@ function datastorage.save(id)
 	if not file then
 		-- Most likely the data directory doesn't exist, create it
 		-- and try again.
-		-- Using os.execute like this is not very platform independent
-		-- or safe; but most platforms name their directory
-		-- creation utility mkdir, and the data path is unlikely to
-		-- contain special characters and is only mutabable by the
-		-- admin.
-		os.execute('mkdir "'..data_path..'"')
+		if minetest.mkdir then
+			minetest.mkdir(data_path)
+		else
+			-- Using os.execute like this is not very platform
+			-- independent or safe, but most platforms name their
+			-- directory creation utility mkdir, the data path is
+			-- unlikely to contain special characters, and the
+			-- data path is only mutable by the admin.
+			os.execute('mkdir "'..data_path..'"')
+		end
 		file = io.open(data_path..id, "w")
 		if not file then return end
 	end
