@@ -1,7 +1,7 @@
 datastorage = {data = {}}
 
 local DIR_DELIM = DIR_DELIM or "/"
-local data_path = minetest.get_worldpath()..DIR_DELIM.."datastorage"..DIR_DELIM
+local data_path = minetest.get_worldpath() .. DIR_DELIM .. "datastorage" .. DIR_DELIM
 
 function datastorage.save(id)
 	local data = datastorage.data[id]
@@ -95,4 +95,3 @@ minetest.register_on_shutdown(function()
 		datastorage.save(id)
 	end
 end)
-

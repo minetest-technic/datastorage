@@ -1,8 +1,8 @@
-datastorage
+Data Storage
 ===========
 
-Helper mod to manage players data.
-All the mods can acces a single file (container) and easily have the data saved/loaded for them.
+Helper mod to manage players data.  
+All the mods can access a single file (container) and easily have the data saved/loaded for them.
 
 Usage
 -----
@@ -19,4 +19,3 @@ containers will be saved on server shutdown.  To forcibly save a container's
 data use:
 
 	datastorage.save(id)
-
